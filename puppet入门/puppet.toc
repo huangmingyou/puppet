@@ -1,0 +1,24 @@
+\contentsline {chapter}{\numberline {1}\msyh puppet简介}{4}
+\contentsline {section}{\numberline {1.1}\msyh puppet是什么}{4}
+\contentsline {section}{\numberline {1.2}\msyh Hello world}{5}
+\contentsline {chapter}{\numberline {2}\msyh puppet安装}{6}
+\contentsline {section}{\numberline {2.1}\msyh debian 系发行版安装puppet}{6}
+\contentsline {section}{\numberline {2.2}\msyh redhat 系发行版安装puppet}{6}
+\contentsline {section}{\numberline {2.3}\msyh 源代码安装puppet}{7}
+\contentsline {section}{\numberline {2.4}\msyh 配置c/s模式的puppet试验环境}{7}
+\contentsline {chapter}{\numberline {3}\msyh puppet语法}{9}
+\contentsline {section}{\numberline {3.1}\msyh 资源}{9}
+\contentsline {section}{\numberline {3.2}\msyh 类和函数}{11}
+\contentsline {section}{\numberline {3.3}\msyh 节点}{12}
+\contentsline {section}{\numberline {3.4}\msyh 变量和数组 }{13}
+\contentsline {section}{\numberline {3.5}\msyh 模块}{14}
+\contentsline {chapter}{\numberline {4}\msyh 几个常用的资源}{15}
+\contentsline {section}{\numberline {4.1}\msyh file资源}{15}
+\contentsline {section}{\numberline {4.2}\msyh package资源}{16}
+\contentsline {section}{\numberline {4.3}\msyh service资源}{16}
+\contentsline {section}{\numberline {4.4}\msyh exec资源}{17}
+\contentsline {chapter}{\numberline {5}\msyh puppet高级内容}{18}
+\contentsline {chapter}{\numberline {6}\msyh puppet部署经验}{19}
+\contentsline {section}{\numberline {6.1}\msyh 客户端模式的puppet部署}{19}
+\contentsline {section}{\numberline {6.2}\msyh 具体部署}{19}
+\contentsline {chapter}{\numberline {7}\msyh FAQ}{21}

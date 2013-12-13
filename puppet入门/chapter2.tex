@@ -1,0 +1,130 @@
+\chapter{\msyh puppet安装}
+\begin{center}
+\kai
+兵马未动，粮草先行
+\end{center}
+
+\song 本章介绍puppet在各个linux发行版的安装,puppet的安装可以从源代码安装，也可以从二进制发行包安装，还可以从ruby的gem安装。下面分别介绍各种linux系统上最便捷的安装方法。顺便说一句，ruby\footnote{\fsong\tiny puppet的作者说当初选择了很多种开发语言，最后选择ruby是因为可以快速的开发并且满足他的需求}是puppet的开发语言。
+\song
+\section{\msyh debian 系发行版安装puppet}
+debian或者ubuntu的软件仓库已经包含了puppet软件，(注:软件包的名字可能会因为系统升级而变化，请先用apt-cache搜索一下),在安装软件之前先设置好主机名，因为puppet要使用ssl证书，证书包含主机名，修改主机名\footnote{\fsong\tiny 其他linux系统修改的方法可能会不一样}首先编辑/etc/hostname,然后执行hostname -F /etc/hostname; 主机名修改后重新登录系统。用下面的命令安装puppet。
+\msyh
+\begin{lstlisting}
+apt-get install puppet puppetmaster
+\end{lstlisting}
+\song
+这样就安装好了客户端和服务器端的软件。
+
+\section{\msyh redhat 系发行版安装puppet}
+
+centos的官方软件库里面不包含puppet包,但是在epel项目里面有包含puppet包. epel 是一个对rhel软件仓库的扩展,把一些有用的,但是rhel库没包含的软件收集在一起做成的一个软件仓库.
+因此首先在centos上面安装epel,以 32位的centos5 举例,其他版本以此类推
+\msyh
+\begin{lstlisting}
+rpm -Uvh http://download.fedora.redhat.com/pub/epel/5/i386/epel-release-5-3.noarch.rpm
+\end{lstlisting}
+\song
+安装好epel库以后,就可以用下面的命令安装puppet了
+\msyh
+\begin{lstlisting}
+yum install puppet
+\end{lstlisting}
+\song
+因为rhel没有yum 包管理系统,因此需要先安装yum软件,再按照上面的方法安装puppet,不在赘述.
+
+
+\section{\msyh 源代码安装puppet}
+首先从http://projects.reductivelabs.com/projects/puppet/wiki/Downloading\_Puppet 下载最新的puppet稳定(stable)版本和facter稳定版。
+同时安装下面的依赖包
+\msyh
+\begin{lstlisting}
+base64
+cgi
+digest/md5
+etc
+fileutils
+ipaddr
+openssl
+strscan
+syslog
+uri
+webrick
+webrick/https
+xmlrpc
+\end{lstlisting}
+\song
+然后先安装facter
+\msyh
+\begin{lstlisting}
+tar zxf facter-1.5.7.tar.gz
+cd facter-1.5.7
+ruby install.rb
+\end{lstlisting}
+\song
+再安装puppet
+\msyh
+\begin{lstlisting}
+tar zxf puppet-0.25.4.tar.gz
+cd puppet-0.25.4
+ruby install.rb
+\end{lstlisting}
+\song
+
+\section{\msyh 配置c/s模式的puppet试验环境}
+工欲善其事，必先利其器！本节讲解如何配置c/s结构的puppet测试环境，生产环境也这样配置。首先准备两台虚拟主机，安装debian或者ubuntu系统。两台主机的主机名分别设置成client.puppet.com和server.puppet.com，参考前面的方法设置好主机名以后再安装puppet软件。以后用client.puppet.com代表客户端，用server.puppet.com代表服务器端。\par
+请参考下面的步骤操作，这里选用debian和规定好主机名，是尽量减少初学者的麻烦。debian版本是5.1。\par
+首先，在客户端安装puppet软件\par
+
+\msyh
+\begin{lstlisting}
+apt-get install puppet
+\end{lstlisting}
+\song
+
+然后在服务器端安装puppetmaster软件
+
+\msyh
+\begin{lstlisting}
+apt-get install puppetmaster
+\end{lstlisting}
+\song
+在客户端的/etc/hosts里面添加服务器的解析,例如:
+\msyh
+\begin{lstlisting}
+echo "192.168.0.10 server.puppet.com" >>/etc/hosts
+\end{lstlisting}
+\song
+
+puppet的客户端和服务器是通过ssl链接的，在服务器有一个自签名的根证书，在安装软件的时候自动生成。\msyh 注意:要在安装软件以前先设置主机名，因为生成证书的时候要把主机名写入证书,如果证书生成好了再改主机名，就连不上，这是很多初学者遇到的问题。\song 每个客户端的证书要经过根证书签名才能和服务器连接。所以首先要在客户端执行下面的命令来请求服务器签名证书。
+
+\msyh
+\begin{lstlisting}
+puppetd --test --server server.puppet.com
+\end{lstlisting}
+\song
+执行上面的命令，客户端将生成证书，并且把证书签名请求发到服务器端。登录到服务器端，执行下面的命令查看是否有客户端的证书请求：
+\msyh \begin{lstlisting}
+pupetca --list
+\end{lstlisting} \song
+如果看到了客户端的证书请求，用下面的命令对所有证书请求签名：
+\msyh \begin{lstlisting}
+pupetca -s -a
+\end{lstlisting} \song
+这样，客户端和服务器端就配置好了，可以在服务器端配置好测试manifest代码进行测试。
+puppetmaster的第一个执行的代码是在/etc/puppet/manifest/site.pp
+因此这个文件必须存在,而且其他的代码也要通过代码来调用.
+现在,建立一个最简单的site.pp文件,内容如下
+\msyh \begin{lstlisting}
+node default {
+          file { "/tmp/temp1.txt": 
+		content => "hello"; }
+         }
+\end{lstlisting} \song
+上面的代码对默认连入的puppet客户端执行一个操作,在/tmp目录生成一个temp1.txt文件,内容是hello,first puppet manifest.
+回到客户端，执行下面的命令:
+\msyh \begin{lstlisting}
+pupetd --test --server server.puppet.com
+\end{lstlisting} \song
+这样，客户端将会从服务器下载默认的执行代码，在/tmp目录下生成叫做temp1.txt的文件。
+
+

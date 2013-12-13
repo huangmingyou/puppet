@@ -1,0 +1,63 @@
+\documentclass[12pt,a4paper]{report}
+%设置页面
+\usepackage[top=1in,bottom=1in,left=1.25in,right=1.25in]{geometry}
+\usepackage{graphicx}
+\usepackage[pagestyles,indentafter]{titlesec}
+\usepackage{fontspec,xunicode,xltxtra}
+\titleformat{\section}{\Large}{\thesection}{1em}{}
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+
+\titleformat{\chapter}[hang]{\centering\LARGE\bfseries}{\chaptername}{1em}{}
+%定义字体
+\newfontfamily\kai{Adobe Kaiti Std}
+\newfontfamily\msyh{微软雅黑}
+\newfontfamily\fsong{Adobe Fangsong Std}
+\newfontfamily\song{Adobe Song Std}
+\newfontfamily\hei{Adobe Heiti Std}
+\newfontfamily\mono{Droid Sans Mono}
+%%%%%
+
+\usepackage{listings} %列出代码%
+\usepackage{xcolor} %列出代码%
+%\lstset{language=Ruby ,label=ruby,backgroundcolor=\color{gray!50},frame=shadow,breaklines=true,basicstyle=\small,numbers=left,numbersep=1pt}
+\lstset{language=Ruby ,label=ruby,backgroundcolor=\color{gray!50},frame=shadow,breaklines=true,basicstyle=\small}
+
+
+% 代码边框设置 %
+
+
+%%%
+\renewcommand{\chaptername}{\msyh 第\thechapter 章}
+
+\renewcommand{\baselinestretch}{1.38}
+
+
+
+\begin{document}
+\newpagestyle{main}{
+    \sethead{}{}{\kai\small\chaptername\quad\chaptertitle\qquad\thepage}
+    \setfoot{}{}{\thepage}\headrule\footrule}
+
+\song
+\title{\msyh puppet 入门}
+\author{huangmingyou@gmail.com}
+
+\maketitle
+\renewcommand{\contentsname}{目录}
+\tableofcontents
+
+
+\pagestyle{main}
+\input{chapter1.tex}
+\input{chapter2.tex}
+\input{chapter3.tex}
+\input{chapter4.tex}
+\input{chapter5.tex}
+\input{chapter5b.tex}
+\input{chapter6.tex}
+\input{end.tex}
+
+
+
+\end{document}

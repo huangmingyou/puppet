@@ -1,0 +1,50 @@
+\chapter{\msyh FAQ}
+\par
+\msyh Q: puppet的证书机制 \par
+A: \song puppet证书问题是初学者最容易遇到的问题,这里讲一下怎么处理.puppet服务器端在安装或者首次启动的时候,会自动生产一个根证书和服务器证书,证书和主机名相关,因此如果证书生成后友改了主机名,那就会出问题.  puppet客户端在首次启动的时候,也会自动生成证书;但是这个证书需要得到puppet服务器端的签名才行,因此;puppet客户端第一次连接服务器的时候,会发送一个证书请求 ; 服务器端需要对这个证书进行签名. puppet客户端在下次连接服务器的时候就会下载签名好的证书.\par
+\msyh Q:debian下面的证书出错,怎么解决?\par
+A:\song 本方法是提供给初学者的测试环境,生成环境不建议这么做.首先在puppetmaster(服务器端)删除/var/lib/puppet/ssl目录;然后启动puppetmasterd ; 然后在客户端也删除/var/lib/puppet/ssl目录.把puppetmaster机器的主机名和对应的ip地址写入客户端机器的/etc/hosts. 然后执行
+\msyh \begin{lstlisting}
+puppetd --test --server server.example.com  #发送证书请求
+\end{lstlisting} \song
+ 把server.example.com替换成你自己的服务器主机名. 执行这个命令,会有提示信息,不用理会.\par
+然后登录到puppetmaster服务器机器,执行
+\msyh \begin{lstlisting}
+puppetca --list #列出所有证书请求
+\end{lstlisting} \song
+命令,看看是否有客户端的证书请求 ;如果没有,请检查前面的步骤是执行正确,以及网络连接是否正常. 如果puppetca --list 能看到请求,那么执行
+\msyh \begin{lstlisting}
+puppetca -s -a  #签名所有证书
+\end{lstlisting} \song
+命令 ; 对所有的证书请求签名.  \par
+最后回到puppet客户端机器,执行
+\msyh \begin{lstlisting}
+puppetd --test --server server.example.com  #得到证书
+\end{lstlisting} \song
+就能建立连接了,如果你的site.pp写好了.就可以测试puppet了.\par
+补充: 如果客户端和服务器端的时间不一致也会导致证书认证失败，因此出现证书问题的时候需要检查两台机器的时间是否一致，如果不一致用date命令或者ntpdate命令让两台机器的时间一致。\par
+
+\msyh Q:redhat下面的证书问题如何解决? \par
+A:\song 同debian ; ssl目录也是在/var/lib/puppet/ssl \par
+
+\msyh Q:源代码安装的puppet如何解决证书问题? \par
+A: \song 同debian,但是ssl目录在/etc/puppet/ssl \par
+
+\msyh Q:如何配置puppetrun \par
+A: \song 在puppet客户端建立一个文件/etc/puppet/auth.conf ,增加两行内容\par
+\msyh \begin{lstlisting}
+path /
+allow *
+\end{lstlisting} \song
+
+然后用下面的参数启动puppetd，便于调试。
+\msyh \begin{lstlisting}
+puppetd --no-client --listen --verbose --no-daemonize --server server.puppet.com
+\end{lstlisting} \song
+启动好以后，用ss -nlp|grep puppet 命令看看puppetd是否监听到了8139端口。如果正常，在其他机器上运行
+\msyh \begin{lstlisting}
+puppetrun  --host host1.puppet.com 
+\end{lstlisting} \song
+命令来看看puppetrun是否正常。
+
+
