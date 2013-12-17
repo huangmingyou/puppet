@@ -6,7 +6,7 @@
 \par
 去中心化的puppet部署，舍弃puppetmaster，直接把puppet manifest 部署到puppet客户端进行执行。这样部署能带来两大好处，一是无穷的扩展性能，c/s方式部署的puppet,部署规模一大，puppetmaster性能会成为一个瓶颈。 二是增加安全性，c/s模式下的证书认证，
 只能保证数据在传输过程中的安全性，但是一旦puppetmaster被黑，所有puppet agent也面临被黑的风险。\par
-本手册的最新版本可以从:http://github.com/huangmingyou/puppet/pdf 获得。
+本手册的最新版本和源代码可以从:http://github.com/huangmingyou/puppet/获得。
 \song
 \newpage
 \chapter{\msyh 部署}
@@ -42,7 +42,7 @@
 以我当前的生产环境的部署来作为例子，我利用一台最垃圾的pc作为私钥保存和签名的机器，并且网络隔离，做磁盘加密。利用rsync来分发代码。我们来看看这套系统怎样自己提着自己的鞋带把自己拉起来。
 \par
 
-当运维上线一台新机器的时候，加入我们自己的私有软件仓库，然后用 apt-get 安装 xy-puppet-init包。这个包依赖puppet,会自动把puppet安装好。同时这个包会在/etc/cron.d/里面安装一个定时任务。这个定时任务会每隔一小时从rsync server去下载puppet manifest代码来执行。下面就是这个脚本的内容。
+当运维上线一台新机器的时候，加入我们自己的私有软件仓库，然后用 apt-get 安装 xy-puppet-init包。这个包依赖puppet,会自动把puppet安装好。同时这个包会在/etc/cron.d/里面安装一个定时任务。这个定时任务会每隔一小时(具体是一小时中那一分钟，是安装包的时候随机设置的,防止所有客户端同时下载。)从rsync server去下载puppet manifest代码来执行。下面就是这个脚本的内容。
 
 \codefont\tiny \begin{lstlisting}
 #!/bin/bash
@@ -58,6 +58,9 @@ rsync -avz --delete /tmp/xy-puppet/puppet/ /etc/puppet/
 puppet /etc/puppet/manifests/site.pp
 /bin/run-parts /etc/puppet/file/shell/autorun/
 \end{lstlisting} \fzsk
-\newpage
+
+\fzsk\normalsize
+
+脚本每隔一小时从rsync服务器下载puppet.tgz 和签名文件。如果签名正确，就让puppet 执行/etc/puppet/manifest/site.pp文件。我的生产环境里面，是用eth0的ip地址作为hostname来区别不同的机器的。这样执行puppet代码，也可以利用template,变量等常用的puppet特性。外部资源和虚拟资源不能用。
 
 

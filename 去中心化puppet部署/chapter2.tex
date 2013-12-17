@@ -1,130 +1,172 @@
-\chapter{\msyh puppet安装}
+\chapter{\msyh 信息收集}
 \begin{center}
 \kai
-兵马未动，粮草先行
+题目:《柳》\par
+作者:寇准（９６１－１０２３）\par
+晓带轻烟间杏花，晚凝深翠拂平沙。\par
+长条别有风流处，密映钱塘苏小家。 \par
+
 \end{center}
 
-\fzsk 本章介绍puppet在各个linux发行版的安装,puppet的安装可以从源代码安装，也可以从二进制发行包安装，还可以从ruby的gem安装。下面分别介绍各种linux系统上最便捷的安装方法。顺便说一句，ruby\footnote{\fsong\tiny puppet的作者说当初选择了很多种开发语言，最后选择ruby是因为可以快速的开发并且满足他的需求}是puppet的开发语言。
-\song
-\section{\msyh debian 系发行版安装puppet}
-debian或者ubuntu的软件仓库已经包含了puppet软件，(注:软件包的名字可能会因为系统升级而变化，请先用apt-cache搜索一下),在安装软件之前先设置好主机名，因为puppet要使用ssl证书，证书包含主机名，修改主机名\footnote{\fsong\tiny 其他linux系统修改的方法可能会不一样}首先编辑/etc/hostname,然后执行hostname -F /etc/hostname; 主机名修改后重新登录系统。用下面的命令安装puppet。
-\msyh
-\begin{lstlisting}
-apt-get install puppet puppetmaster
-\end{lstlisting}
-\fzsk
-这样就安装好了客户端和服务器端的软件。
+\fzsk 
+\section{\msyh  信息收集}
 
-\section{\msyh redhat 系发行版安装puppet}
+如何收集puppet执行后的信息呢? 我这里是采用的foreman来收集puppet执行情况以及服务器上的facter配置信息。通常，在c/s方式部署puppet的时候，puppet agent执行的结果反馈给puppet master, 然后由puppet master统计提交给foreman或者puppet dashboard。在这里，因为没有puppet master,所以我们需要直接把puppet执行后情况发送给foreman。思路是在puppet agent的puppet.conf配置文件里面加上log report功能，然后自定义一个foreman的log report方法。
 
-centos的官方软件库里面不包含puppet包,但是在epel项目里面有包含puppet包. epel 是一个对rhel软件仓库的扩展,把一些有用的,但是rhel库没包含的软件收集在一起做成的一个软件仓库.
-因此首先在centos上面安装epel,以 32位的centos5 举例,其他版本以此类推
-\msyh
-\begin{lstlisting}
-rpm -Uvh http://download.fedora.redhat.com/pub/epel/5/i386/epel-release-5-3.noarch.rpm
+\codefont\tiny \begin{lstlisting}
+[main]
+report = true
+reports = foreman
+
 \end{lstlisting}
-\song
-安装好epel库以后,就可以用下面的命令安装puppet了
-\msyh
-\begin{lstlisting}
-yum install puppet
+
+\fzsk\normalsize
+
+然后再创建一个/var/lib/puppet/lib/puppet/reports/foreman.rb的文件，内容如下:
+
+\codefont\tiny \begin{lstlisting}
+
+# <%= ERB.new(File.read(File.expand_path("_header.erb",File.dirname(file)))).result(binding) -%>
+# copy this file to your report dir - e.g. /usr/lib/ruby/1.8/puppet/reports/
+# add this report in your puppetmaster reports - e.g, in your puppet.conf add:
+# reports=log, foreman # (or any other reports you want)
+
+# URL of your Foreman installation
+$foreman_url='http://foremanserver:8000'
+# if CA is specified, remote Foreman host will be verified
+#$foreman_ssl_ca = "<%= @ssl_ca -%>"
+# ssl_cert and key are required if require_ssl_puppetmasters is enabled in Foreman
+#$foreman_ssl_cert = "<%= @ssl_cert -%>"
+#$foreman_ssl_key = "<%= @ssl_key -%>"
+
+require 'puppet'
+require 'net/http'
+require 'net/https'
+require 'uri'
+
+Puppet::Reports.register_report(:foreman) do
+    Puppet.settings.use(:reporting)
+    desc "Sends reports directly to Foreman"
+
+    def process
+      begin
+        uri = URI.parse($foreman_url)
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl     = uri.scheme == 'https'
+        if http.use_ssl?
+          if $foreman_ssl_ca && !$foreman_ssl_ca.empty?
+            http.ca_file = $foreman_ssl_ca
+            http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+          else
+            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+          end
+          if $foreman_ssl_cert && !$foreman_ssl_cert.empty? && $foreman_ssl_key && !$foreman_ssl_key.empty?
+            http.cert = OpenSSL::X509::Certificate.new(File.read($foreman_ssl_cert))
+            http.key  = OpenSSL::PKey::RSA.new(File.read($foreman_ssl_key), nil)
+          end
+        end
+        req = Net::HTTP::Post.new("#{uri.path}/reports/create?format=yml")
+        req.set_form_data({'report' => to_yaml})
+        response = http.request(req)
+      rescue Exception => e
+        raise Puppet::Error, "Could not send report to Foreman at #{$foreman_url}/reports/create?format=yml: #{e}"
+      end
+    end
+end
+
 \end{lstlisting}
-\song
-因为rhel没有yum 包管理系统,因此需要先安装yum软件,再按照上面的方法安装puppet,不在赘述.
+\fzsk\normalsize
+
+这个脚本会把puppet执行日志发送给foreman。这样就可以知道puppet执行情况。
+\begin{center}
+\includegraphics[width=0.6\textwidth]{1.png}
+\end{center}
+\par
+另外还有一个数据的收集，那就是facter收集的数据，便于做资产统计，比如统计服务器序列号，软件的版本号，网卡的速率等。下面这个脚本，会把/var/lib/puppet/yaml/facts/hostname.yaml文件内的内容，推送到foreman里面的fact值里面。
+\codefont\tiny \begin{lstlisting}
+#! /usr/bin/env ruby
+#
+# This scripts runs on remote puppetmasters that you wish to import their nodes facts into Foreman
+# it uploads all of the new facts its encounter based on a control file which is stored in /tmp directory.
+# This script can run in cron, e.g. once every minute
+# if you run it on many puppetmasters at the same time, you might consider adding something like:
+# sleep rand(10) # that not all PM hammers the DB at once.
+# ohadlevy@gmail.com
+
+# puppet config dir
+puppetdir="/var/lib/puppet"
+
+# URL where Foreman lives
+url="http://122.224.73.164:8000"
+
+# Temp file keeping the last run time
+stat_file = "/tmp/foreman_fact_importer"
+
+require 'fileutils'
+require 'net/http'
+require 'net/https'
+require 'uri'
+
+last_run = File.exists?(stat_file) ? File.stat(stat_file).mtime.utc : Time.now - 365*60*60
+
+Dir["#{puppetdir}/yaml/facts/*.yaml"].each do |filename|
+  last_fact = File.stat(filename).mtime.utc
+  if last_fact > last_run
+    fact = File.read(filename)
+    puts "Importing #{filename}"
+    begin
+      uri = URI.parse(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      if uri.scheme == 'https' then
+        http.use_ssl = true
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      end
+      req = Net::HTTP::Post.new("/fact_values/create?format=yml")
+      req.set_form_data({'facts' => fact})
+      response = http.request(req)
+    rescue Exception => e
+      raise "Could not send facts to Foreman: #{e}"
+    end
+  end
+end
+FileUtils.touch stat_file
+
+\end{lstlisting}
+\fzsk\normalsize
+现在，有趣的的问题来了，/var/lib/puppet/yaml/facts/hostname.yaml 文件怎么创建呢，c/s模式里面，是puppetmaster负责的。这里，我们直接用facter  -y 命令来产生这个文件。这还产生了一个另外好处，不用自定义facter的脚本，就能收集任何fact值，比如我要收集一个软件版本的信息，我直接用shell脚本取软件版本号，然后用echo把信息追加到yaml文件里面。下面这个脚本我用来生成yaml文件。并且收集了几个软件的版本和网卡的速率。
+
+\codefont\tiny \begin{lstlisting}
+#!/bin/bash
+cf=/var/lib/puppet/yaml/facts/`hostname`.yaml
+mkdir -p /var/lib/puppet/yaml/facts
+facter -y  > $cf
+sed -i '/ppp/d' $cf
+
+m2v=$(dpkg -l|grep mycomp-l2tpns|awk '{print $3}')
+m3v=$(dpkg -l|grep mycomp-openvpn|awk '{print $3}')
+m2id=$(grep "id=" /opt/mycomp/l2tpns/etc/vppp.conf |sed 's/id=//')
+echo "  m2ver: ${m2v:-NULL}" >>$cf
+echo "  m3ver: ${m3v:-NULL}" >>$cf
+echo "  m2id: ${m2id:-NULL}" >>$cf
 
 
-\section{\msyh 源代码安装puppet}
-首先从http://projects.reductivelabs.com/projects/puppet/wiki/Downloading\_Puppet 下载最新的puppet稳定(stable)版本和facter稳定版。
-同时安装下面的依赖包
-\msyh
-\begin{lstlisting}
-base64
-cgi
-digest/md5
-etc
-fileutils
-ipaddr
-openssl
-strscan
-syslog
-uri
-webrick
-webrick/https
-xmlrpc
-\end{lstlisting}
-\song
-然后先安装facter
-\msyh
-\begin{lstlisting}
-tar zxf facter-1.5.7.tar.gz
-cd facter-1.5.7
-ruby install.rb
-\end{lstlisting}
-\song
-再安装puppet
-\msyh
-\begin{lstlisting}
-tar zxf puppet-0.25.4.tar.gz
-cd puppet-0.25.4
-ruby install.rb
-\end{lstlisting}
-\song
+mii-tool 2>/dev/null |sed 's/^/  mii/' >>$cf
+/usr/local/bin/push-fact.ruby
 
-\section{\msyh 配置c/s模式的puppet试验环境}
-工欲善其事，必先利其器！本节讲解如何配置c/s结构的puppet测试环境，生产环境也这样配置。首先准备两台虚拟主机，安装debian或者ubuntu系统。两台主机的主机名分别设置成client.puppet.com和server.puppet.com，参考前面的方法设置好主机名以后再安装puppet软件。以后用client.puppet.com代表客户端，用server.puppet.com代表服务器端。\par
-请参考下面的步骤操作，这里选用debian和规定好主机名，是尽量减少初学者的麻烦。debian版本是5.1。\par
-首先，在客户端安装puppet软件\par
 
-\msyh
-\begin{lstlisting}
-apt-get install puppet
 \end{lstlisting}
-\song
+\fzsk\normalsize
 
-然后在服务器端安装puppetmaster软件
+\begin{center}
+\includegraphics[width=0.6\textwidth]{2.png}
+\end{center}
+这个脚本会在每次执行完puppet以后调用。把需要收集的fact值发到foreman。
 
-\msyh
-\begin{lstlisting}
-apt-get install puppetmaster
-\end{lstlisting}
-\song
-在客户端的/etc/hosts里面添加服务器的解析,例如:
-\msyh
-\begin{lstlisting}
-echo "192.168.0.10 server.puppet.com" >>/etc/hosts
-\end{lstlisting}
-\song
+\par
 
-puppet的客户端和服务器是通过ssl链接的，在服务器有一个自签名的根证书，在安装软件的时候自动生成。\msyh 注意:要在安装软件以前先设置主机名，因为生成证书的时候要把主机名写入证书,如果证书生成好了再改主机名，就连不上，这是很多初学者遇到的问题。\song 每个客户端的证书要经过根证书签名才能和服务器连接。所以首先要在客户端执行下面的命令来请求服务器签名证书。
+如果你思路还清晰的话，应该记的，每次都是从crontab执行脚本来下载puppet代码执行，这个脚本最后一行会执行/bin/run-parts /etc/puppet/file/shell/autorun/; 会把 /etc/puppet/file/shell/autorun/目录下的所有脚本执行一次。有个好处，避免每次用exec资源来执行脚本。同时我还可以加一个/etc/puppet/file/shell/perhost/目录，目录下面按主机名建目录，里面放上特定的机器需要执行的特定代码。只需要再加一句行/bin/run-parts /etc/puppet/file/shell/perhost/`hostname`/
 
-\msyh
-\begin{lstlisting}
-puppetd --test --server server.puppet.com
-\end{lstlisting}
-\song
-执行上面的命令，客户端将生成证书，并且把证书签名请求发到服务器端。登录到服务器端，执行下面的命令查看是否有客户端的证书请求：
-\msyh \begin{lstlisting}
-pupetca --list
-\end{lstlisting} \song
-如果看到了客户端的证书请求，用下面的命令对所有证书请求签名：
-\msyh \begin{lstlisting}
-pupetca -s -a
-\end{lstlisting} \song
-这样，客户端和服务器端就配置好了，可以在服务器端配置好测试manifest代码进行测试。
-puppetmaster的第一个执行的代码是在/etc/puppet/manifest/site.pp
-因此这个文件必须存在,而且其他的代码也要通过代码来调用.
-现在,建立一个最简单的site.pp文件,内容如下
-\msyh \begin{lstlisting}
-node default {
-          file { "/tmp/temp1.txt": 
-		content => "hello"; }
-         }
-\end{lstlisting} \song
-上面的代码对默认连入的puppet客户端执行一个操作,在/tmp目录生成一个temp1.txt文件,内容是hello,first puppet manifest.
-回到客户端，执行下面的命令:
-\msyh \begin{lstlisting}
-pupetd --test --server server.puppet.com
-\end{lstlisting} \song
-这样，客户端将会从服务器下载默认的执行代码，在/tmp目录下生成叫做temp1.txt的文件。
+\par
+利用autorun和perhost目录，可以灵活的做一些批量任务，而不用去修改puppet代码，写exec资源等。
 
 
