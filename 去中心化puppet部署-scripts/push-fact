@@ -1,0 +1,17 @@
+#!/bin/bash
+cf=/var/lib/puppet/yaml/facts/`hostname`.yaml
+mkdir -p /var/lib/puppet/yaml/facts
+facter -y  > $cf
+sed -i '/ppp/d' $cf
+
+m2v=$(dpkg -l|grep dell-l2tpns|awk '{print $3}')
+m3v=$(dpkg -l|grep dell-openvpn|awk '{print $3}')
+m2id=$(grep "id=" /opt/dell/l2tpns/etc/vppp.conf |sed 's/id=//')
+echo "  m2ver: ${m2v:-NULL}" >>$cf
+echo "  m3ver: ${m3v:-NULL}" >>$cf
+echo "  m2id: ${m2id:-NULL}" >>$cf
+
+
+mii-tool 2>/dev/null |sed 's/^/  mii/' >>$cf
+/usr/local/bin/push-fact.ruby
+
