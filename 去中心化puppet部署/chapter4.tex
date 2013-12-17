@@ -1,0 +1,68 @@
+\chapter{\msyh 几个常用的资源}
+\begin{center}
+\kai
+不入虎穴，焉得虎子
+\end{center}
+\par
+puppet提供了很多资源类型，但是常用的就那么几个。在讲解具体的内容之前，先了解一下provider这个概念，puppet管理不同的资源，是利用不同的provider来管理的。例如管理package资源，在debian上面是用的apt-get,在redhat上面是用的yum 。在这里,apt,yum就是provider。在定义资源的时候，可以明确指定provider。但是通常都是由puppet自己探测。因为不同的provider功能不一样，所以在不同的操作系统上面，有些资源能实现的功能也不一样，例如在linux上面设置user资源的时候，不能设置密码(新的puppet或许已经支持)，需要用其他辅助手段来完成，但是设置 ldap用户的时候是可以设置密码的。
+\section{\msyh file资源}
+file资源在puppet里面用的挺多，属性包括大家已经属性的owner,group,mode,content等等。file还有两个重要的命令，。source和template.通常，一个文件的内容可以由content属性来包含固定的内容，但是也可以用source命令来从其他url复制文件内容。目前puppet只支持puppet这个url,表示从puppet的fileserver去下载文件内容。例如：
+\msyh \begin{lstlisting}
+source => "puppet://${fileserver}/lvs/${corp}.${idc}.keepalived.conf"
+\end{lstlisting} \song
+其中fileserver后面的lvs表示是lvs模块的files目录这个路径。正如前面提到的一样。用 source就可以把很多配置文件放到puppet服务器端统一管理。
+
+file资源的另一个template命令是一个功能强大的命令。利用template,可以通过erb模板生成文件内容，erb模板可以使用变量。而且还可以对变量进行计算和操作。这是puppet强大的地方，举一个例子,你配置两台squid服务器，两台服务器的内存不一样，那么在squid.conf里面有关内存的配置命令就要根据硬件配置来设置。在过去，你只能手工去判定和修改，现在puppet自己搞定。看下面的代码：
+\newpage
+\msyh \begin{lstlisting}
+file {
+	"/etc/squid/squid.conf":
+	mode => 0644,
+	content => template ("squid/squid.conf.erb");
+}
+\end{lstlisting} \song
+
+这里的template里面的"squid/squid.conf.erb"表示的路径是squid模块下面templates目录下的squid.conf.erb这个路径。
+看看squid.conf.erb里面的部分内容\footnote{\fsong\tiny vmx\_memsize 和 fqdn 是facter提交的变量,表示内存和主机名}
+
+\msyh \begin{lstlisting}
+cache_mem <%= Integer(vmx_memsize.to_i*0.45) -%> MB
+visible_hostname <%= fqdn %>
+\end{lstlisting} \song
+在这里，cache\_mem设置成总内存的45\%大小，visible\_hostname 设置成主机名。更多有趣的功能也可以实现。
+\section{\msyh package资源}
+package资源管理系统的软件包安装，该资源的主要属性是ensure;设置该软件包应该在什么状态. installed 表示要安装该软件,也可以写成present; absent 表示反安装该软件,pureged 表示干净的移除该软件,latest 表示安装软件包的最新版本.例如：
+\msyh \begin{lstlisting}
+package {
+    ["vim","iproute","x-window-system"]:
+    ensure => installed;
+    ["pppoe","pppoe-conf"]:
+    ensure => absent;
+    }
+\end{lstlisting} \song
+安装vim等包，删除pppoe,pppoe-conf包。如果你的系统安装的是编译的软件包，建议你打包成操作系统的包格式，建立你自己的软件仓库。
+\section{\msyh service资源}
+service资源表示保证/etc/init.d目录下的服务执行脚本执行什么命令，例如:
+\msyh \begin{lstlisting}
+service {
+	"ssh":
+	ensure => running;
+	"nfs":
+	ensure => stoped;
+}
+\end{lstlisting} \song
+puppet只保证服务会运行或者停止，但是不保证开机启动的服务的初始状态，既不会去管理/etc/rcX.d目录下的服务的链接。
+service可以通过start,retart,status命令来指定这些命令的路径。如果不指定restart路径，当执行重启的时候就是先 stop再start服务。另外你还可以用pattern属性来设置搜索进程列表的匹配字符串,用于不支持init脚本的系统.当要停止一个服务的时候,通过查看进程运行列表来判断.
+
+\section{\msyh exec资源}
+exec资源在不到万不得已的时候不要去用，简单说来exec资源就是在执行puppet的时候，调用shell执行一条shell语句，例如：
+\msyh \begin{lstlisting}
+exec {
+	"delete config":
+	path => "/bin:/usr/bin",
+	command => "rm /etc/ssh/ssh_config";
+}
+\end{lstlisting} \song
+exec可以用path指定命令执行的预搜索路径，create属性表明该exec将创建一个文件，当下一次puppet执行的时候，如果发现了这个文件，就不再执行这个exec资源。\par
+exec资源是不太好掌控的资源，如果能用脚本实现，尽量写成脚本通过file资源分发到服务器上面。然后用其他的方式来调用脚本。例如crontab。说来crontab资源，罗嗦一句，虽然puppet提供了crontab资源，但是你完全可以用file资源来把 crontab任务放到 /etc/cron.d目录下来实现crontab资源的管理。使用puppet的时候，尽量用最简单的语法，越是花哨的语法也越容易出错。
+
