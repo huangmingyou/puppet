@@ -12,4 +12,4 @@
 
 7. 角色可以是定义一组应用的配置，例如nginx,zabbix,mysql ; 也可以定义一个机房的配置，例如该机房里面的zabbix 服务器地址，redis地址等信息。
 
-8. ldap2grains.sh 脚本会查询host属于那个datacenter,找到该datacenter的角色定义，同时也查询host的VPhotosRole属性来看host定义了那些角色。
+8. ldap2grains.sh 脚本会查询host属于那个datacenter,找到该datacenter的角色定义，同时也查询host的VRole属性来看host定义了那些角色。
