@@ -4,9 +4,9 @@
 
 3. 每服务器的区别配置，主要通过 saltstack 的 grains 来定义不同的变量。
 
-4. grians 保存到 /etc/vphotos.conf ; 由脚本 ldap2grains.sh 查询openldap 自动生成。
+4. grians 保存到 /etc/vsalt.conf ; 由脚本 ldap2grains.sh 查询openldap 自动生成。
 
-5. openldap 里面，主机在 ou=datacenter,dc=vphotos,dc=cn 下面。
+5. openldap 里面，主机在 ou=datacenter,dc=example,dc=cn 下面。
 
 6. 主机可以定义一组角色， 每组角色会定义一些grains值
 
